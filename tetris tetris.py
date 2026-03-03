@@ -11,21 +11,12 @@ SIDE_PANEL = 150
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH + SIDE_PANEL, HEIGHT))
-pygame.display.set_caption("Neon Tetris")
+pygame.display.set_caption("Tetris Tetris")
 clock = pygame.time.Clock()
-font = pygame.font.SysFont("arial", 20)
-big_font = pygame.font.SysFont("arial", 40)
+font = pygame.font.SysFont("comicsansms", 20)
+big_font = pygame.font.SysFont("comicsansms", 40)
 
-# --- Sounds (dummy) ---
-class DummySound:
-    def play(self): pass
-
-MOVE_SOUND = DummySound()
-ROTATE_SOUND = DummySound()
-LINE_CLEAR_SOUND = DummySound()
-GAME_OVER_SOUND = DummySound()
-
-# --- Neon Colors ---
+# --- Colors ---
 COLORS = [
     (0, 255, 255),
     (255, 0, 255),
@@ -37,6 +28,9 @@ COLORS = [
 ]
 BG_COLOR = (20, 20, 30)
 GRID_COLOR = (50, 50, 60)
+BUTTON_COLOR = (50, 200, 50)
+BUTTON_HOVER = (0, 255, 100)
+TEXT_COLOR = (0, 0, 0)
 
 # --- Shapes ---
 SHAPES = [
@@ -108,8 +102,6 @@ def clear_lines():
         new_grid.insert(0, [0]*COLS)
     grid[:] = new_grid
 
-    if lines_cleared:
-        LINE_CLEAR_SOUND.play()
     if lines_cleared == 1:
         score += 100
     elif lines_cleared == 2:
@@ -136,41 +128,90 @@ def draw_next_piece():
                      60 + y*GRID_SIZE,
                      GRID_SIZE, GRID_SIZE))
 
-def draw_restart_button():
-    pygame.draw.rect(screen, (50,200,50), (WIDTH + 20, 500, 100, 40))
-    text = font.render("Restart", True, (0,0,0))
-    screen.blit(text, (WIDTH + 30, 510))
+def draw_buttons():
+    mx, my = pygame.mouse.get_pos()
+    
+    # Restart Button
+    restart_rect = pygame.Rect(WIDTH + 20, 500, 100, 40)
+    restart_color = BUTTON_HOVER if restart_rect.collidepoint(mx, my) else BUTTON_COLOR
+    pygame.draw.rect(screen, restart_color, restart_rect)
+    restart_text = font.render("Restart", True, TEXT_COLOR)
+    screen.blit(restart_text, (WIDTH + 30, 510))
+    
+    # Back to Home Button
+    back_rect = pygame.Rect(WIDTH + 20, 440, 100, 40)
+    back_color = BUTTON_HOVER if back_rect.collidepoint(mx, my) else BUTTON_COLOR
+    pygame.draw.rect(screen, back_color, back_rect)
+    back_text = font.render("Home", True, TEXT_COLOR)
+    screen.blit(back_text, (WIDTH + 40, 450))
+    
+    return restart_rect, back_rect
 
-def draw():
+def draw_game():
     screen.fill(BG_COLOR)
     for y in range(ROWS):
         for x in range(COLS):
             if grid[y][x]:
                 pygame.draw.rect(screen, grid[y][x],
-                    (x*GRID_SIZE, y*GRID_SIZE, GRID_SIZE, GRID_SIZE))
+                                 (x*GRID_SIZE, y*GRID_SIZE, GRID_SIZE, GRID_SIZE))
     for y, row in enumerate(current.matrix):
         for x, cell in enumerate(row):
             if cell:
                 pygame.draw.rect(screen, current.color,
-                    ((current.x + x)*GRID_SIZE,
-                     (current.y + y)*GRID_SIZE,
-                     GRID_SIZE, GRID_SIZE))
+                                 ((current.x + x)*GRID_SIZE,
+                                  (current.y + y)*GRID_SIZE,
+                                  GRID_SIZE, GRID_SIZE))
     draw_grid()
     draw_next_piece()
-    draw_restart_button()
+    restart_rect, back_rect = draw_buttons()
     score_text = font.render(f"Score: {score}", True, (255,255,255))
     high_score_text = font.render(f"High Score: {high_score}", True, (255,255,255))
     screen.blit(score_text, (WIDTH + 10, 200))
     screen.blit(high_score_text, (WIDTH + 10, 230))
     pygame.display.flip()
+    return restart_rect, back_rect
 
 def game_over_screen():
-    GAME_OVER_SOUND.play()
     screen.fill(BG_COLOR)
     text = big_font.render("GAME OVER", True, (255,0,0))
     screen.blit(text, (WIDTH//2 - 120, HEIGHT//2 - 40))
     pygame.display.flip()
     pygame.time.delay(3000)
+
+def home_screen():
+    while True:
+        screen.fill(BG_COLOR)
+        title = big_font.render("Tetris Tetris", True, (0,255,255))
+        screen.blit(title, (WIDTH//2 - 120, HEIGHT//3))
+
+        mx, my = pygame.mouse.get_pos()
+
+        # Play Button
+        play_rect = pygame.Rect(WIDTH//2 - 60, HEIGHT//2, 120, 50)
+        play_color = BUTTON_HOVER if play_rect.collidepoint(mx,my) else BUTTON_COLOR
+        pygame.draw.rect(screen, play_color, play_rect)
+        play_text = font.render("Play", True, TEXT_COLOR)
+        screen.blit(play_text, (WIDTH//2 - 20, HEIGHT//2 + 15))
+
+        # Quit Button
+        quit_rect = pygame.Rect(WIDTH//2 - 60, HEIGHT//2 + 80, 120, 50)
+        quit_color = BUTTON_HOVER if quit_rect.collidepoint(mx,my) else BUTTON_COLOR
+        pygame.draw.rect(screen, quit_color, quit_rect)
+        quit_text = font.render("Quit", True, TEXT_COLOR)
+        screen.blit(quit_text, (WIDTH//2 - 20, HEIGHT//2 + 95))
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if play_rect.collidepoint(mx,my):
+                    return  # start game
+                if quit_rect.collidepoint(mx,my):
+                    pygame.quit()
+                    sys.exit()
 
 # --- Game Setup ---
 score = 0
@@ -178,6 +219,10 @@ fall_speed = 500
 fall_time = 0
 current = Piece()
 next_piece = Piece()
+grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+
+# --- Start at Home Screen ---
+home_screen()
 
 running = True
 game_over = False
@@ -193,7 +238,8 @@ while running:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = pygame.mouse.get_pos()
-            if WIDTH+20 <= mx <= WIDTH+120 and 500 <= my <= 540:
+            restart_rect, back_rect = draw_buttons()
+            if restart_rect.collidepoint(mx, my):
                 # Restart game
                 grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
                 score = 0
@@ -202,28 +248,33 @@ while running:
                 current = Piece()
                 next_piece = Piece()
                 game_over = False
+            if back_rect.collidepoint(mx, my):
+                # Back to home screen
+                grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+                score = 0
+                fall_speed = 500
+                fall_time = 0
+                current = Piece()
+                next_piece = Piece()
+                game_over = False
+                home_screen()
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT and valid_move(current,-1,0):
                 current.x -= 1
-                MOVE_SOUND.play()
             if event.key == pygame.K_RIGHT and valid_move(current,1,0):
                 current.x += 1
-                MOVE_SOUND.play()
             if event.key == pygame.K_DOWN and valid_move(current,0,1):
                 current.y += 1
-                MOVE_SOUND.play()
             if event.key == pygame.K_UP:
                 old_matrix = current.matrix
                 current.rotate()
                 if valid_move(current,0,0):
-                    ROTATE_SOUND.play()
+                    pass
                 elif valid_move(current,1,0):
                     current.x += 1
-                    ROTATE_SOUND.play()
                 elif valid_move(current,-1,0):
                     current.x -= 1
-                    ROTATE_SOUND.play()
                 else:
                     current.matrix = old_matrix
 
@@ -243,7 +294,7 @@ while running:
             fall_speed = max(100, fall_speed - 5)
         fall_time = 0
 
-    draw()
+    draw_game()
     if game_over:
         game_over_screen()
         grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
@@ -253,6 +304,7 @@ while running:
         current = Piece()
         next_piece = Piece()
         game_over = False
+        home_screen()
 
 pygame.quit()
 sys.exit()
